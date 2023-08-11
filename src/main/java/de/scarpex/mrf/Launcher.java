@@ -3,6 +3,7 @@ package de.scarpex.mrf;
 import de.scarpex.mrf.account.MSAccountManager;
 import de.scarpex.mrf.chromedriver.ChromeDriverUtils;
 import de.scarpex.mrf.chromedriver.OSType;
+import de.scarpex.mrf.chromedriver.ProxyUtils;
 import de.scarpex.mrf.command.CommandManager;
 import de.scarpex.mrf.command.bing.SearchCommand;
 import de.scarpex.mrf.command.general.ClearCommand;
@@ -13,7 +14,8 @@ import org.apache.logging.log4j.Logger;
 import org.openqa.selenium.io.Zip;
 
 import java.io.*;
-import java.net.URL;
+import java.net.URLConnection;
+import java.nio.file.Files;
 import java.util.Properties;
 import java.util.Scanner;
 
@@ -31,9 +33,12 @@ public class Launcher {
             "Safari/537.36 Edge/15.15063";
 
     private static final String CONFIG = "config.properties";
-
     private Properties properties;
     private MSAccountManager accountManager;
+
+    public static void main(String[] args) {
+        new Launcher();
+    }
 
     public Launcher() {
         long epoch = System.currentTimeMillis();
@@ -45,27 +50,7 @@ public class Launcher {
         loadPropertiesFile(new File(dir));
 
         log.info("Checking for new version of Chromedriver...");
-        File path = new File("chromedriver");
-
-        if (!path.exists()) {
-            log.info("No Chromedriver found. Downloading the latest Chromedriver version from the internet...");
-            path.mkdirs();
-
-            OSType os = ChromeDriverUtils.getOS();
-            if (os == null) {
-                log.warn("The OS can not be determined. Please use this application only on Windows, Linux or Mac.");
-                System.exit(69); // https://opensource.apple.com/source/Libc/Libc-320/include/sysexits.h
-            }
-
-            download(ChromeDriverUtils.getDownloadLink(), path, false);
-        } else {
-            String version = this.properties.getProperty("chromedriver.version");
-
-            if (version == null || !ChromeDriverUtils.getLatestVersion().equals(version)) {
-                log.info("New version found! Start downloading...");
-                download(ChromeDriverUtils.getDownloadLink(), path, true);
-            }
-        }
+        checkDriver();
 
         this.accountManager = new MSAccountManager(new File(dir));
 
@@ -82,16 +67,34 @@ public class Launcher {
         }
     }
 
-    public static void main(String[] args) {
+    /**
+     * 检查驱动程序
+     */
+    private void checkDriver() {
+        File path = new File("chromedriver");
+        if (!path.exists()) {
+            log.info("No Chromedriver found. Downloading the latest Chromedriver version from the internet...");
+            path.mkdirs();
 
-        // TODO: ascii text art maybe?
-
-        new Launcher();
+            OSType os = ChromeDriverUtils.getOS();
+            if (os == null) {
+                log.warn("The OS can not be determined. Please use this application only on Windows, Linux or Mac.");
+                System.exit(69); // https://opensource.apple.com/source/Libc/Libc-320/include/sysexits.h
+            }
+            download(ChromeDriverUtils.getDownloadLink(), path, false);
+        } else {
+            String version = this.properties.getProperty("chromedriver.version");
+            if (version == null || !ChromeDriverUtils.getLatestVersion().equals(version)) {
+                log.info("New version found! Start downloading...");
+                download(ChromeDriverUtils.getDownloadLink(), path, true);
+            }
+        }
     }
 
     /**
      * Loads the configuration file. If there is no "config.properties" file
      * a new configuration file will be created.
+     * 加载配置文件
      *
      * @param folder The place where the configuration file is located.
      */
@@ -129,15 +132,19 @@ public class Launcher {
     /**
      * Download the latest version of the Chromedriver and replace it with the
      * old version.
+     * 下载驱动
      *
      * @param url    The download link to the latest version.
      * @param path   The path to the download folder.
      * @param update Will the version be updated?
      */
     private void download(String url, File path, boolean update) {
+        URLConnection urlConnection = ProxyUtils.urlProxy(url);
         try {
             log.info(String.format("Start download for %s driver...", System.getProperty("os.name")));
-            FileUtils.copyURLToFile(new URL(url), new File(path, "chromedriver.zip"));
+            File file = new File(path, "chromedriver.zip");
+            inputStream2File(urlConnection.getInputStream(), file);
+
         } catch (IOException e) {
             log.error("It seems something went wrong.", e);
         } finally {
@@ -172,4 +179,31 @@ public class Launcher {
             }
         }
     }
+
+    /**
+     * 输入流转换文件
+     *
+     * @param inputStream 文件输入流
+     * @param file        文件
+     * @throws IOException ioexception
+     */
+
+    public static void inputStream2File(InputStream inputStream, File file) throws IOException {
+        OutputStream outputStream = null;
+        try {
+            outputStream = Files.newOutputStream(file.toPath());
+            int len = 0;
+            byte[] buffer = new byte[1024];
+
+            while ((len = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, len);
+            }
+        } finally {
+            if (outputStream != null) {
+                outputStream.close();
+            }
+            inputStream.close();
+        }
+    }
+
 }
