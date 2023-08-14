@@ -8,6 +8,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.openqa.selenium.By;
+import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -29,7 +30,7 @@ import java.util.stream.Stream;
  */
 public class SearchCommand extends Command {
     private static final Logger log = LogManager.getLogger(SearchCommand.class);
-    private static final int DEFAULT_DESKTOP_REQUEST_VALUE = 30;
+    private static final int DEFAULT_DESKTOP_REQUEST_VALUE = 34;
     private static final int DEFAULT_MOBILE_REQUEST_VALUE = 20;
 
     private final Random random;
@@ -106,6 +107,10 @@ public class SearchCommand extends Command {
         this.driver.findElement(By.id("idSIButton9")).click();
 
         sleep();
+
+        this.driver.findElement(By.id("idBtn_Back")).click();
+
+        sleep();
     }
 
     /**
@@ -127,7 +132,7 @@ public class SearchCommand extends Command {
         search.clear();
         search.sendKeys(this.words.get(this.random.nextInt(this.words.size())));
 
-        this.driver.findElement(By.id("sb_form_go")).click();
+        search.sendKeys(Keys.ENTER);
 
         sleep();
     }
@@ -155,11 +160,11 @@ public class SearchCommand extends Command {
     }
 
     /**
-     * Wait a moment between one and two seconds.
+     * Wait a moment between three and five seconds.
      */
     private void sleep() {
         try {
-            Thread.sleep(this.random.nextInt(3000 - 1000) + 1000);
+            Thread.sleep(this.random.nextInt(3000 - 1000) + 3000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
